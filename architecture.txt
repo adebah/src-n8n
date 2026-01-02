@@ -1,0 +1,52 @@
+Parcours de souscription Save 1:
+Identification des flux :
+0- Appel du service Agilab « GetGrille » pour récupérer les grilles de prix  (une ou deux fois par jour)
+1- Rechercher et Valider l’adresse dans DQE
+2- Lister les communes et Vérifier que la commune n’est pas une entreprise locale de distribution (ELD) (saisie d’adresse automatique)
+2’- Vérifier que la commune n’est pas une entreprise locale de distribution (ELD) (saisie d’adresse manuelle)
+3- Rechercher PDL/PCE via Adresse 
+4- Numériser la photo du compteur pour récupérer le matricule (Optionnel)
+5- Rechercher PDL/PCE via Adresse + matricule compteur (Optionnel)
+6- Consentement GRD en cas de CHF 
+7- LirePDL/PCE
+8- Estimer la consommation en cas de vente EM
+9- On appelle le service Agilab « calculette » pour calculer le devis                                                           
+10- Recevoir le devis par mail (Optionnel) 
+11- Récupérer ou créer PDL/PCE 
+12- Récupérer ou créer l’installation 
+13- Envoi du save 1 à salesforce
+14- Création d’un case en cas d’erreur 
+
+
+Parcours de souscription Save 2:
+Identification des flux :
+1- Vérifier l’adresse email dans DQE
+2- Vérifier le numéro de téléphone dans DQE
+3- vérifier que le pdl/pce ne sont pas limités ou blacklistés
+4-  Vérifier que l’IBAN n’est pas blacklisté
+5-  Générer un RUM
+6- Envoi du save 2 à salesforce 
+7- Mise à jour personne
+8- Création coordonnées bancaires et Mandat et contrat au statut « En attente signature »
+9- Mise à jour personne et portefeuille contrat 
+10- Récupérer informations CPVs
+11- Création document CPVs
+12- Création document Mandat (si mode de paiement prélèvement)
+13- Génération du code de signature
+15- Envoi du code de signature
+16- Récupération des questions consentements
+
+ NB : Suite à l’envoi du save 2, salesforce créé le portefeuille contrat et la proposition commerciale, et les renvois à Digital dans la réponse du service
+
+Parcours de souscription Save 3:
+Identification des flux :
+1- Valider le code de signature
+2- Signer le ou les documents CPVs
+3- Signer le mandat (Mode de paiement en prélèvement)
+4-  Mise à jour personne
+5-  Mise à jour portefeuille contrat
+6- Envoi du save 3 à salesforce 
+7- Envoi du mail de finalisation de la souscription 
+8- Envoi du mail d’activation de l’EC
+9- Envoi du mail de Bienvenue
+
