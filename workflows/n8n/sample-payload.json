@@ -1,0 +1,15 @@
+{
+  "channel": "web",
+  "firstName": "Camille",
+  "lastName": "Durand",
+  "email": "camille.durand@example.com",
+  "phone": "+33 6 12 34 56 78",
+  "address": {
+    "ligne1": "12 Rue des Fleurs",
+    "codePostal": "75011",
+    "ville": "Paris"
+  },
+  "requestedProduct": "Electricité verte (puissance 9kVA, heures creuses)",
+  "consentGiven": false,
+  "consentText": "J’accepte les Conditions Générales et le traitement de mes données pour la contractualisation."
+}
