@@ -1,0 +1,13 @@
+{
+  "name": "souscription-mocks",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local mock servers for Souscription Save 1 testing",
+  "main": "mock-apis.js",
+  "scripts": {
+    "start": "node mock-apis.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "UNLICENSED"
+}

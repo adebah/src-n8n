@@ -1,0 +1,20 @@
+{
+  "channel": "web",
+  "customer": {
+    "firstName": "Bob",
+    "lastName": "Martin",
+    "email": "bob@example.com",
+    "phone": "+33611111111"
+  },
+  "address": {
+    "ligne1": "8 Avenue Victor Hugo",
+    "codePostal": "69006",
+    "ville": "Lyon"
+  },
+  "energyType": "electricite",
+  "saleType": "CHF",
+  "manualPdlpce": null,
+  "consentGiven": true,
+  "consentText": "Consentement GRD pour changement de fournisseur",
+  "quoteEmail": "bob@example.com"
+}

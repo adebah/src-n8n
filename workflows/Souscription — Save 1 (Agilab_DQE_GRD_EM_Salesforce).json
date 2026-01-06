@@ -1,0 +1,693 @@
+{
+  "name": "Souscription — Save 1 (Agilab/DQE/GRD/EM/Salesforce)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "souscription/save1/request",
+        "options": {
+          "responseData": {
+            "message": "Save 1 reçu, traitement en cours"
+          }
+        }
+      },
+      "id": "7c74c4ee-a116-4529-beb9-8aaeaa797bd0",
+      "name": "Webhook — Save 1",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -3696,
+        -752
+      ],
+      "webhookId": "687f752b-2cdb-47d0-a5f2-b97aa481f44f"
+    },
+    {
+      "parameters": {
+        "functionCode": "const input = $json;\nconst address = input.address || input.ai?.entities?.adresse || {};\nconst energyType = input.energyType || input.ai?.entities?.energieType;\nconst saleType = input.saleType || input.ai?.entities?.options?.chf ? 'CHF' : (input.ai?.entities?.options?.em ? 'EM' : input.saleType);\nconst manualPdlpce = input.manualPdlpce || null;\nconst quoteEmail = input.quoteEmail || input.customer?.email || input.ai?.entities?.identite?.email || null;\nreturn [{ address, energyType, saleType, manualPdlpce, quoteEmail, consentGiven: Boolean(input.consentGiven), consentText: input.consentText || '' }];"
+      },
+      "id": "fe491e17-a2a8-4bbf-9589-80b0d742fb72",
+      "name": "Normaliser Entrée",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        -3472,
+        -752
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "const missing = [];\nif (!($json.address && ($json.address.ligne1 || $json.address.line1) && $json.address.codePostal && $json.address.ville)) missing.push('address');\nif (!['electricite','gaz','dual','elec','gas'].includes(($json.energyType||'').toLowerCase())) missing.push('energyType');\nif (!['EM','CHF'].includes($json.saleType||'')) missing.push('saleType');\nreturn [{ missing }];"
+      },
+      "id": "b50920a1-e0e1-4156-8b3c-09142fe85686",
+      "name": "Valider Champs Requis",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        -3248,
+        -752
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.missing.length === 0}}"
+            }
+          ]
+        }
+      },
+      "id": "a507e9d4-84aa-4f7d-8dc8-ad304cdfe2a8",
+      "name": "Champs complets?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -3040,
+        -752
+      ]
+    },
+    {
+      "parameters": {
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "16515f74-77bd-4bbf-a5cc-61b3cd2f6386",
+      "name": "Répondre — Manquants",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        -2464,
+        -736
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5207/address/validate",
+        "jsonParameters": true,
+        "sendBody": true,
+        "bodyParametersJson": "={{ JSON.stringify($json.address) }}",
+        "options": {}
+      },
+      "id": "277011e0-2a78-4c8e-bbba-179ef789d2ad",
+      "name": "DQE — Valider Adresse",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        -3680,
+        -336
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5208/meter/search",
+        "jsonParameters": true,
+        "sendBody": true,
+        "bodyParametersJson": "={{ JSON.stringify({ adresse: $json.validatedAddress || $json.address }) }}",
+        "options": {}
+      },
+      "id": "6f866625-f0d8-4952-8415-5ea16fc220ae",
+      "name": "GRD — Rechercher PDL/PCE (Adresse)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        -3392,
+        -288
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "const addressResult = items[0].json;\nconst validated = addressResult;\nreturn items.map(i => ({ json: { ...i.json, validatedAddress: validated.validated || i.json.address } }));"
+      },
+      "id": "29874d29-42d2-4511-aa90-187b129f438a",
+      "name": "Adresse Validée",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        -3552,
+        -144
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "const res = $json;\nconst found = res.pdlpce || res.result?.pdlpce || null;\nreturn [{ foundPdlpce: found }];"
+      },
+      "id": "d7adc1f6-0074-4e84-a50b-419fc83ddf63",
+      "name": "PDL/PCE trouvé?",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        -3072,
+        -352
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "const manual = $json.manualPdlpce || null;\nreturn [{ pdlpce: manual || $json.foundPdlpce || null }];"
+      },
+      "id": "e94e67ea-3666-4965-8761-333855d40688",
+      "name": "Utiliser PDL manuel si fourni",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        -3040,
+        -96
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.saleType === 'CHF'}}"
+            }
+          ]
+        }
+      },
+      "id": "91a57278-6943-4c93-9536-3260ea340661",
+      "name": "CHF?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -2864,
+        -240
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5208/consent",
+        "jsonParameters": true,
+        "sendBody": true,
+        "bodyParametersJson": "={{ JSON.stringify({ consent: { donne: $json.consentGiven, texte: $json.consentText }, pdlpce: $json.pdlpce }) }}",
+        "options": {}
+      },
+      "id": "d381ae34-e341-4c82-8e8b-ec9c9085e522",
+      "name": "GRD — Consentement (CHF)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        -2720,
+        -480
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5208/meter/read",
+        "jsonParameters": true,
+        "sendBody": true,
+        "bodyParametersJson": "={{ JSON.stringify({ pdlpce: $json.pdlpce }) }}",
+        "options": {}
+      },
+      "id": "03f695a4-f1fe-4e08-9c45-c92ac1032e48",
+      "name": "GRD — Lire PDL/PCE",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        -2592,
+        32
+      ]
+    },
+    
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5209/estimate",
+        "jsonParameters": true,
+        "sendBody": true,
+        "bodyParametersJson": "={{ JSON.stringify({ pdlpce: $json.pdlpce, energyType: $json.energyType }) }}",
+        "options": {}
+      },
+      "id": "b6ef7f7a-8b8e-4a3d-9d87-eea2d03102c0",
+      "name": "Estimation Conso",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        -3520,
+        496
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5206/calculette",
+        "jsonParameters": true,
+        "sendBody": true,
+        "bodyParametersJson": "={{ JSON.stringify({ energyType: $json.energyType, pdlpce: $json.pdlpce, estimation: $json }) }}",
+        "options": {}
+      },
+      "id": "ef12dead-f7d4-4cc8-a747-be2cbea45907",
+      "name": "Agilab — Calculette (Devis)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        -3312,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "toEmail": "={{$json.quoteEmail}}",
+        "subject": "Votre devis énergie",
+        "text": "Voici votre devis.",
+        "options": {}
+      },
+      "id": "54c3a74c-a5de-4011-925c-0aa4fde2e6b8",
+      "name": "Email — Devis (Optionnel)",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 1,
+      "position": [
+        -3136,
+        784
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5208/meter/upsert",
+        "jsonParameters": true,
+        "sendBody": true,
+        "bodyParametersJson": "={{ JSON.stringify({ pdlpce: $json.pdlpce, adresse: $json.validatedAddress || $json.address }) }}",
+        "options": {}
+      },
+      "id": "1c4a9ae2-556e-4685-bf2d-d15e344c129f",
+      "name": "GRD — Créer/Récupérer PDL/PCE",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        -3104,
+        496
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5208/installation/upsert",
+        "jsonParameters": true,
+        "sendBody": true,
+        "bodyParametersJson": "={{ JSON.stringify({ pdlpce: $json.pdlpce }) }}",
+        "options": {}
+      },
+      "id": "edb63aab-c6e1-4ddc-80aa-66991d282e2e",
+      "name": "GRD — Créer/Récupérer Installation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        -2880,
+        496
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5205/saves/1",
+        "jsonParameters": true,
+        "sendBody": true,
+        "bodyParametersJson": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "899cf05b-aa11-4fee-8162-ebff124a6475",
+      "name": "Salesforce — Save 1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        -2672,
+        496
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ !!$json.error }}"
+            }
+          ]
+        }
+      },
+      "id": "05c49781-8f79-4d48-ba1f-59447542602d",
+      "name": "Save1 erreur?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -2464,
+        496
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5205/cases",
+        "jsonParameters": true,
+        "sendBody": true,
+        "bodyParametersJson": "={{ JSON.stringify({ context: 'save1', error: $json.error || 'unknown' }) }}",
+        "options": {}
+      },
+      "id": "3d324d30-5a66-4c1c-8612-7521dc1d4fde",
+      "name": "Salesforce — Case (Erreur)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        -2256,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "807e677b-a429-442c-9069-b2645aed9f75",
+      "name": "Répondre — OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        -2256,
+        688
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ !!$json.foundPdlpce }}"
+            }
+          ]
+        }
+      },
+      "id": "478ccb62-aa91-4387-b9a5-6666064bec4a",
+      "name": "PDL trouvé?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -3216,
+        -224
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5206/getgrille",
+        "jsonParameters": true,
+        "sendBody": true,
+        "bodyParametersJson": "={{ JSON.stringify({}) }}",
+        "options": {}
+      },
+      "id": "634f827e-5058-4f9e-99e7-d4d5745e142c",
+      "name": "Agilab — GetGrille (Cron)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        -3488,
+        -1120
+      ]
+    },
+    {
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            {}
+          ]
+        }
+      },
+      "id": "471e3139-3103-4518-abb7-6537f2831a95",
+      "name": "Planif — GetGrille Quotidien",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [
+        -3712,
+        -1120
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook — Save 1": {
+      "main": [
+        [
+          {
+            "node": "Normaliser Entrée",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normaliser Entrée": {
+      "main": [
+        [
+          {
+            "node": "Valider Champs Requis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valider Champs Requis": {
+      "main": [
+        [
+          {
+            "node": "Champs complets?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Champs complets?": {
+      "main": [
+        [
+          {
+            "node": "DQE — Valider Adresse",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Répondre — Manquants",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DQE — Valider Adresse": {
+      "main": [
+        [
+          {
+            "node": "Adresse Validée",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Adresse Validée": {
+      "main": [
+        [
+          {
+            "node": "GRD — Rechercher PDL/PCE (Adresse)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GRD — Rechercher PDL/PCE (Adresse)": {
+      "main": [
+        [
+          {
+            "node": "PDL trouvé?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PDL/PCE trouvé?": {
+      "main": [
+        [
+          {
+            "node": "CHF?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Utiliser PDL manuel si fourni": {
+      "main": [
+        [
+          {
+            "node": "CHF?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CHF?": {
+      "main": [
+        [
+          {
+            "node": "GRD — Consentement (CHF)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "GRD — Lire PDL/PCE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GRD — Consentement (CHF)": {
+      "main": [
+        [
+          {
+            "node": "GRD — Lire PDL/PCE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GRD — Lire PDL/PCE": {
+      "main": [
+        [
+          {
+            "node": "Estimation Conso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Estimation Conso": {
+      "main": [
+        [
+          {
+            "node": "Agilab — Calculette (Devis)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agilab — Calculette (Devis)": {
+      "main": [
+        [
+          {
+            "node": "GRD — Créer/Récupérer PDL/PCE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GRD — Créer/Récupérer PDL/PCE": {
+      "main": [
+        [
+          {
+            "node": "GRD — Créer/Récupérer Installation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GRD — Créer/Récupérer Installation": {
+      "main": [
+        [
+          {
+            "node": "Salesforce — Save 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Salesforce — Save 1": {
+      "main": [
+        [
+          {
+            "node": "Save1 erreur?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save1 erreur?": {
+      "main": [
+        [
+          {
+            "node": "Salesforce — Case (Erreur)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Répondre — OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PDL trouvé?": {
+      "main": [
+        [
+          {
+            "node": "PDL/PCE trouvé?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Utiliser PDL manuel si fourni",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Planif — GetGrille Quotidien": {
+      "main": [
+        [
+          {
+            "node": "Agilab — GetGrille (Cron)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "executionTimeout": -1
+  },
+  "versionId": "ff595ef6-35fb-4daf-8ee2-39bfe7f14b32",
+  "meta": {
+    "instanceId": "ebfebda75df35794bf34e5364c9d09dd4f3fb6fd0f6dbec143c2bb15a8c88274"
+  },
+  "id": "XsV8yqLf42icNWUfH-B7F",
+  "tags": []
+}
