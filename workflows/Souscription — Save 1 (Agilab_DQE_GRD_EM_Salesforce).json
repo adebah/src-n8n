@@ -23,7 +23,75 @@
     },
     {
       "parameters": {
-        "functionCode": "const input = $json;\nconst address = input.address || input.ai?.entities?.adresse || {};\nconst energyType = input.energyType || input.ai?.entities?.energieType;\nconst saleType = input.saleType || input.ai?.entities?.options?.chf ? 'CHF' : (input.ai?.entities?.options?.em ? 'EM' : input.saleType);\nconst manualPdlpce = input.manualPdlpce || null;\nconst quoteEmail = input.quoteEmail || input.customer?.email || input.ai?.entities?.identite?.email || null;\nreturn [{ address, energyType, saleType, manualPdlpce, quoteEmail, consentGiven: Boolean(input.consentGiven), consentText: input.consentText || '' }];"
+        "method": "POST",
+        "url": "http://localhost:11434/api/generate",
+        "jsonParameters": true,
+        "sendBody": true,
+        "bodyParametersJson": "={{ JSON.stringify({ model: $env.OLLAMA_MODEL || 'llama3.2', prompt: 'Tu es un agent de classification pour Save 1. Retourne UNIQUEMENT du JSON valide avec les champs intent, entities, validation, consentement. N\'ajoute aucun texte hors JSON. Remplis les entités à partir de ce payload: ' + JSON.stringify($json), format: 'json', stream: false, options: { temperature: 0 } }) }}",
+        "options": {}
+      },
+      "id": "a8f9f0a1-6b63-4b55-9d78-8f4c7c7c2a11",
+      "name": "IA — Classifier & Extraire",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        -3600,
+        -944
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "const txt = $json.response || $json.output || '';\nlet parsed;\ntry { parsed = JSON.parse(txt); } catch (e) { parsed = { error: 'invalid_ai_json', raw: txt }; }\nreturn [{ ...parsed }];"
+      },
+      "id": "c1b7a9de-0a2a-4a9e-8f05-3f0c8b0b1d22",
+      "name": "IA — Parser Réponse",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        -3520,
+        -848
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.error !== 'invalid_ai_json'}}"
+            }
+          ]
+        }
+      },
+      "id": "f2a8c6b4-5a2d-4f8e-9f0e-1c3d7a9b2c11",
+      "name": "AI JSON valide?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -3440,
+        -896
+      ]
+    },
+    {
+      "parameters": {
+        "options": {
+          "responseCode": 400,
+          "responseData": {
+            "message": "IA JSON invalide"
+          }
+        }
+      },
+      "id": "8e5c3d21-7f4a-4a21-9a6b-0b1a2c3d4e5f",
+      "name": "Répondre — IA Invalide",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        -3328,
+        -912
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "const input = $json;\nconst aiEntities = input.ai?.entities || input.entities || {};\nconst address = input.address || aiEntities.adresse || {};\nconst energyType = input.energyType || aiEntities.energieType;\nconst saleType = input.saleType || (aiEntities.options?.chf ? 'CHF' : (aiEntities.options?.em ? 'EM' : input.saleType));\nconst manualPdlpce = input.manualPdlpce || aiEntities.manualPdlpce || null;\nconst quoteEmail = input.quoteEmail || input.customer?.email || aiEntities.identite?.email || null;\nreturn [{ address, energyType, saleType, manualPdlpce, quoteEmail, consentGiven: Boolean(input.consentGiven), consentText: input.consentText || '' }];"
       },
       "id": "fe491e17-a2a8-4bbf-9589-80b0d742fb72",
       "name": "Normaliser Entrée",
@@ -431,7 +499,47 @@
       "main": [
         [
           {
+            "node": "IA — Classifier & Extraire",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IA — Classifier & Extraire": {
+      "main": [
+        [
+          {
+            "node": "IA — Parser Réponse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IA — Parser Réponse": {
+      "main": [
+        [
+          {
+            "node": "AI JSON valide?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI JSON valide?": {
+      "main": [
+        [
+          {
             "node": "Normaliser Entrée",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Répondre — IA Invalide",
             "type": "main",
             "index": 0
           }
